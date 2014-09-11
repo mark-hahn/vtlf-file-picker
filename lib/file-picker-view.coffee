@@ -1,18 +1,19 @@
 {$, View, EditorView} = require 'atom'
 
 filePickerCSS = """
-  .btn-group.btn-group-vtlf {width: 120px}
-    .btn-group.btn-group-vtlf .btn {width: 45%}
+  .btn-group.left {width: 50px; margin-left: 5px}
+    .btn-group .btn.left {width: 80%}
+  .btn-group.right {width: 120px; margin-left: 8px}
+    .btn-group .btn.right {width: 45%}
   .vtlf-container { display: -webkit-flex; -webkit-flex-direction: row; }
-    .vtlf-container .btn-group { margin-left: 12px; }
     .vtlf-container .editor-container { position: relative; -webkit-flex: 1}
       .vtlf-container .editor { width: 100%; }
     .vtlf-container .file-picker-side {position:relative; top:-10px; 
-        margin-right:15px}
+        margin-left:3px; margin-right:15px}
       .vtlf-container .recent-picks {
           background-color:rgba(128, 128, 128, 0.2);
-          margin:left:15px; width:280px; overflow:auto; border:solid 1px gray}
-        .vtlf-container .recent-picks-inner {width:275px}
+          margin:left:15px; width:180px; overflow:auto; border:solid 1px gray}
+        .vtlf-container .recent-picks-inner {width:178px}
         .vtlf-container .recent-picks-inner .list-group {
           font-size:14px; margin-left:8px}
 """
@@ -35,22 +36,25 @@ class FilePickerView extends View
         @span class: 'description', 'View-Tail-Large-Files: Open Any File'
 
       @div class: "file-path vtlf-container block", =>
+        @div class: 'btn-group-vtlf btn-group left', =>
+          @button outlet: 'bsButton',   tabindex:"3", \
+                   class: 'inline-block btn left', '^ BS'
         @div class: "editor-container", =>
           @subview "filePath", new EditorView
             tabindex:"1"
             mini: true
             placeholderText: "Absolute path to file"
 
-        @div class: 'btn-group-vtlf btn-group', =>
+        @div class: 'btn-group-vtlf btn-group right', =>
           @button outlet: 'openButton',   tabindex:"3", \
-                   class: 'inline-block btn', 'Open'
+                   class: 'inline-block btn right', 'Open'
           @button outlet: 'cancelButton', tabindex:"2", \
-                   class: 'inline-block btn', 'Cancel'
+                   class: 'inline-block btn right', 'Cancel'
                      
       @div class:"file-picker-bottom vtlf-container block", =>
         
         @div class:"file-picker-side inline-block ui-colors", =>
-          @span class: 'description', 'Recent Files'
+          @span class: 'description', 'Directories (Backspace For Parent)'
           @div class: 'recent-picks', =>
             @div class: 'recent-picks-inner', =>
               @ul class: 'list-group', =>
@@ -60,6 +64,17 @@ class FilePickerView extends View
                 @li class: 'list-item', 'Normal item'       
                 @li class: 'list-item', 'Normal item'
                          
+        @div class:"file-picker-side inline-block", =>
+          @span class: 'description', 'Files In Directory'
+          @div class: 'recent-picks', =>
+            @div class: 'recent-picks-inner', =>
+              @ul class: 'list-group', =>
+                @li class: 'list-item', 'Normal item'       
+                @li class: 'list-item', 'Normal item'       
+                @li class: 'list-item', 'Normal item'       
+                @li class: 'list-item', 'Normal item'       
+                @li class: 'list-item', 'Normal item'       
+                  
         @div class:"file-picker-side inline-block", =>
           @span class: 'description', 'Recent Files'
           @div class: 'recent-picks', =>
