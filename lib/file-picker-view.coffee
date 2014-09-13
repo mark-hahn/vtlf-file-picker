@@ -113,11 +113,10 @@ class FilePickerView extends View
     @handleEvents()
     @$editor.focus()
 
-    @state.curPath     ?= ''
-    @state.oldSelDirs  ?= {}
-    @state.selectedDir ?= ''
-    @state.recentPaths ?= []
-    @state.colFocused  ?= 'dirs'
+    @state.curPath      ?= ''
+    @state.prevSelDirs  ?= {}
+    @state.prevSelFiles ?= {}
+    @state.colFocused   ?= 'dirs'
     
     @focusCol @state.colFocused
     
@@ -143,9 +142,15 @@ class FilePickerView extends View
       $('<li/>').text(str).appendTo $ul
 
   setAllFromPath: ->
-    console.log 'setAllFromPath enter @dir',  @dir
+    # console.log 'setAllFromPath enter @dir',  @dir
+    
+    oldDir = @dir
     
     @state.curPath = @editorView.getText()
+    
+    if /^\.+$/.test @state.curPath
+      @editorView.setText (@state.curPath = '')
+
     curPath = _.trim @state.curPath
     if process.platform is 'win32' 
       curPath = curPath.toLowerCase()
@@ -154,34 +159,35 @@ class FilePickerView extends View
       curPath = curPath.replace /\\/g, '/'
       
     @dir  = ''
+    @file = ''
     dirs  = []
     files = []
     
     if curPath is '' 
-      @dir = ''
+      @dir = @file = ''
       dirs = rootDrives
     else
-      if fs.isFileSync curPath then @dir = path.dirname curPath
-      else if fs.isDirectorySync curPath then  @dir = curPath
+      if fs.isFileSync curPath then @dir= path.dirname (@file = curPath)
+      else if fs.isDirectorySync curPath then @dir = curPath; @file = ''
       else
         lastPath = null
         parentPath = curPath
         while parentPath isnt lastPath and not fs.isDirectorySync parentPath
           lastPath = parentPath
           parentPath = path.normalize parentPath + '/..'
-        @dir = parentPath
-        
-    console.log 'setAllFromPath @dir',  @dir
+        @dir  = parentPath
+        @file = ''
         
     if not (hasPath = /\\|\//.test @dir)
-      @dir = '' 
+      @dir = @file = ''
       dirs = rootDrives
-      console.log '.test @dir',  @dir
     else
       for dirOrFile in fs.listSync @dir
         basename = path.basename dirOrFile
         if fs.isDirectorySync dirOrFile then dirs.push basename else files.push basename
         
+    if @dir isnt oldDir then @focusCol 'dirs'
+    
     $under = @.find '.highlights.underlayer'
     if not ($vtlfCover = $under.next()).hasClass 'vtlf-cover'
       $under.after ($vtlfCover = $ '<div class="vtlf-cover"/>')
@@ -190,24 +196,24 @@ class FilePickerView extends View
       $vtlfCover.hide()
     else
       $editorText = @.find 'span.text'
-      if @dir
-        $editorText.after ($textClone = $editorText.clone().css(visibility:'none').text(@dir))
-        dirWidth = $textClone.width()
+      if (dirOrFile = (@file or @dir))
+        $editorText.after \
+            ($textClone = $editorText.clone().css(visibility:'none').text(dirOrFile))
+        dirOrFileWidth = $textClone.width()
         $textClone.remove()
       else 
-        dirWidth = 0
+        dirOrFileWidth = 0
       editWid = (if curPath then $editorText.width() else 0)
-      $vtlfCover.css display:'block', left: dirWidth, width: editWid - dirWidth
+      $vtlfCover.css display:'block', left: dirOrFileWidth, width: editWid - dirOrFileWidth
     
     @setLIs @dirsUl,  dirs
-    @setLIs @filesUl, files
-    
-    # console.log 'using @state.oldSelDirs', @dir, @state.oldSelDirs
-    
-    # if not @setHighlight @state.selectedDir
-    if not((dir = @state.oldSelDirs[@dir.length]) and @setHighlight dir)
-      @setHighlight @dirsUl.children().eq(0).text()
+    if not((dir = @state.prevSelDirs[@dir.length]) and @setHighlight @dirsUl, dir)
+      @setHighlight @dirsUl, @dirsUl.children().eq(0).text()
       
+    @setLIs @filesUl, files
+    if not((file = @state.prevSelFiles[@dir.length]) and @setHighlight @filesUl, file)
+      @setHighlight @filesUl, @filesUl.children().eq(0).text()
+
     @$editor.focus()
     
   setPath: (path) ->
@@ -222,7 +228,7 @@ class FilePickerView extends View
       oldDir = @dir
       @dir = path.normalize @dir + '/..'
       if @dir is oldDir then @dir = ''
-      console.log 'goToParent @dir',  @dir
+      # console.log 'goToParent @dir',  @dir
     @setPath @dir
     
   openDir: (dir) -> 
@@ -234,7 +240,8 @@ class FilePickerView extends View
     if ($tgt = $(e.target).closest 'li').length is 0 then return
     $ul = $tgt.closest 'ul'
     switch
-      when $ul.hasClass 'dirs' then @openDir $tgt.text()
+      when $ul.hasClass 'dirs'  then @openDir  $tgt.text()
+      when $ul.hasClass 'files' then @openFile $tgt.text()
       
   liMetrics: ($li) ->
     $inner      = $li.closest '.column-inner'
@@ -252,20 +259,16 @@ class FilePickerView extends View
       when liTop < scrollTop then liTop	
       when liBot > scrollBot then 2 * liBot - liTop - outerHeight
       else scrollTop
-    
-  # obviously some refactoring is needed here
-  setHighlight: (name) ->
-    $ul = switch @colFocused
+  
+  getUl: ->
+    switch @state.colFocused
       when 'dirs'   then @dirsUl
       when 'files'  then @filesUl
       when 'recent' then @recentUl
+      
+  setHighlight: ($ul, name) ->
     $lis = $ul.children()
-    if name is '' 
-      switch @colFocused
-        when 'dirs'   then @state.selectedDir    = ''
-        when 'files'  then @state.selectedFile   = ''
-        when 'recent' then @state.selectedRecent = ''
-      return false
+    if name is '' then return false
     $matchedLi = null
     $lis.each ->
       $li = $ @
@@ -276,22 +279,14 @@ class FilePickerView extends View
       $lis.removeClass 'highlight'
       $matchedLi.addClass 'highlight'
       @ensureLiVisible $matchedLi
-      switch @colFocused
-        when 'dirs'   then @state.selectedDir    = name
-        when 'files'  then @state.selectedFile   = name
-        when 'recent' then @state.selectedRecent = name
-
-      # console.log 'setHighlight', @dir, @dir.length, name, @state.oldSelDirs
-      @state.oldSelDirs[@dir.length] = name
-      
+      if $ul.hasClass 'dirs'  then @state.prevSelDirs[ @dir.length] = name
+      if $ul.hasClass 'files' then @state.prevSelFiles[@dir.length] = name
+	              #  console.log 'set prevsel', {name, @colFocused	      , prevSelDirs: @state.prevSelDirs, prevSelFiles: @state.prevSelFiles, @dir, dirlen: @dir.length}
       return true
     false
     
   moveHighlight: (code) ->
-    $ul = switch @colFocused
-      when 'dirs'   then @dirsUl
-      when 'files'  then @filesUl
-      when 'recent' then @recentUl
+    $ul = @getUl()
     $hilite = $ul.find '.highlight'
     if (hiliteIdx = $hilite.index()) is -1 then code = 'down'
     hiliteIdx += switch code
@@ -305,7 +300,7 @@ class FilePickerView extends View
         Math.floor outerHeight / (liBot - liTop)
     $lis = $ul.children()
     hiliteIdx = Math.max 0, Math.min hiliteIdx, $lis.length - 1
-    @setHighlight $lis.eq(hiliteIdx).text()
+    @setHighlight $ul, $lis.eq(hiliteIdx).text()
     
   keypress: (fromKeypress = yes) ->
     @lastKeyAction ?= 0
@@ -316,24 +311,45 @@ class FilePickerView extends View
     @lastKeyAction = now
     
   focusCol: (col) ->
-    @$focusable.removeClass 'focused'
+    @$focusable.removeClass 'focused'   
     switch col
       when 'dirs'   then @dirs.addClass   'focused'
       when 'files'  then @files.addClass  'focused'
       when 'recent' then @recent.addClass 'focused'
-    @state.colFocused = @colFocused = col
+    @state.colFocused = col
     
   focusNext: (fwd) -> 
-    switch @colFocused
+    switch @state.colFocused
       when 'dirs'   then (if fwd then @focusCol('files')  else @focusCol('recent'))
       when 'files'  then (if fwd then @focusCol('recent') else @focusCol('dirs'))
       when 'recent' then (if fwd then @focusCol('dirs')   else @focusCol('files'))
       
+  openFile: (text) ->
+    if not @dir or not text then return
+    @file = path.join @dir, text
+    @file = if process.platform is 'win32' then @file.replace /\//g, '\\'  \
+                                           else @file.replace /\\/g, '/'
+    if not fs.existsSync @file
+      atom.confirm
+        message: 'View-Tail-Large-Files Error:\n\n'
+        detailedMessage: 'File ' + @file + ' doesn\'t exist.'
+        buttons: ['Close']
+      return
+    @destroy()
+    console.log 'openFile', @file
+    @FilePicker.open @file
+
   confirm: ->
-    if @state.colFocused is 'dirs'
-      @openDir @state.selectedDir
-    else
-      @open()
+    $ul = @getUl()
+    if ($hi = $ul.find '.highlight').length is 0 then return
+    text = $hi.text() 
+    switch @state.colFocused
+      when 'dirs'  then @openDir  text
+      when 'files' then @openFile text
+      
+  openFromButton: ->              
+    if ($tgt = @filesUl.find '.highlight	').length > 0
+      @openFile $tgt.text()
     
   handleEvents: ->
     @click                                          => @$editor.focus()
@@ -348,26 +364,9 @@ class FilePickerView extends View
     @on 'view-tail-large-files:ctrl-up',            => @goToParent()
     @editorView.on 'keyup',                     (e) => @keypress()
     @cancelButton.on 'click',                       => @destroy()
-    @openButton.on   'click',                       => @open()
+    @openButton.on   'click',                       => @openFromButton()
     @bsButton.on     'click',                       => @goToParent()
     @on 'click', '.column-vertical',            (e) => @colClick e
-      
-  open: ->
-    filePath = @editorView.getText()
-    filePath = if process.platform is 'win32' then filePath.replace /\//g, '\\'  \
-                                              else filePath.replace /\\/g, '/'
-    filePath = 'c:\\apps\\insteon\\data\\hvac.log'   # debug
-    
-    if not fs.existsSync filePath
-      atom.confirm
-        message: 'View-Tail-Large-Files Error:\n\n'
-        detailedMessage: 'File ' + filePath + ' doesn\'t exist.'
-        buttons: ['Close']
-      return
-
-    @destroy()
-    @FilePicker.open filePath
-    
+          
   destroy: -> @detach()
 
-    
