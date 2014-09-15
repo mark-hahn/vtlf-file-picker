@@ -324,7 +324,8 @@ class FilePickerView extends View
     @setHighlight $ul, hiliteIdx
     
   keypress: (e) ->
-	   if e.which in [9, 40, 38, 33, 34, 17, 13] then return
+    if e.which in [9, 40, 38, 33, 34, 17, 13] then return
+    if @colFocused is 'recent' then @focusCol 'dirs'
     @lastKeyAction ?= 0
     now = Date.now()
     if @keypressTO then clearTimeout @keypressTO; @keypressTO = null
@@ -333,13 +334,17 @@ class FilePickerView extends View
     @lastKeyAction = now
     
   focusCol: (col) ->
+    if @colFocused is 'recent' then @setAllFromPath()
     @$focusable.removeClass 'focused'   
     switch col
       when 'dirs'   then @dirs.addClass   'focused'
       when 'files'  then @files.addClass  'focused'
-      when 'recent' then @recent.addClass 'focused'
+      when 'recent' 
+        @recent.addClass 'focused'
+        @showTempPath @state.recentSel[@recentSelIdx]
+        @setHighlight @getUl(), @recentSelIdx
     @colFocused = col
-    process.nextTick => @setAllFromPath()
+    # process.nextTick => @setAllFromPath()
     
   focusNext: (fwd) -> 
     switch @colFocused
@@ -366,7 +371,7 @@ class FilePickerView extends View
     @destroy()
     @FilePicker.open file
 
-  confirm: -	 
+  confirm: ->
     $ul = @getUl()
     if ($hi = $ul.find '.highlight').length is 0 then return
     text = $hi.text() 
