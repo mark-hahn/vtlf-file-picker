@@ -365,8 +365,6 @@ class FilePickerView extends View
         detailedMessage: 'File ' + file + ' doesn\'t exist.'
         buttons: ['Close']
       return
-    @state.recentSel = _.reject @state.recentSel, (recentFile) -> recentFile is file
-    @state.recentSel.unshift file
     # console.log 'openFile', file, @state.recentSel
     @destroy()
     @FilePicker.open file
@@ -402,5 +400,9 @@ class FilePickerView extends View
     @openButton.on   'click',                       => @openFromButton()
     @bsButton.on     'click',                       => @goToParent()
     @on 'click', '.column-vertical',            (e) => @colClick e
+    
+  preFileOpen: (file) ->
+    @state.recentSel = _.reject @state.recentSel, (recentFile) -> recentFile is file
+    @state.recentSel.unshift file
           
   destroy: -> @detach()
