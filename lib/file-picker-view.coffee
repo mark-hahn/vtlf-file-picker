@@ -1,8 +1,8 @@
 {$, View, EditorView} = require 'atom'
 
-fs    = require 'fs-plus'
-path  = require 'path'
-_     = require "underscore"
+fs        = require 'fs-plus'
+path      = require 'path'
+_         = require "underscore"
 _.mixin require('underscore.string').exports()
 
 rootDrives = null
@@ -45,11 +45,6 @@ filePickerCSS = """
 module.exports =
 class FilePickerView extends View
   
-	@remove = -> 
-    if ($picker = atom.workspaceView.find '.vtlf-file-picker').length > 0
-      $picker.view().destroy()
-      true
-      
   @content: ->
     @div class:'vtlf-file-picker vtlf-form overlay from-top', tabindex:"-1", =>
            
@@ -96,7 +91,11 @@ class FilePickerView extends View
             @div class: 'column-inner', =>
               @ul outlet: 'recentUl', class: 'list-group recent', =>
                            
-  initialize: (@state, @FilePicker) ->
+  @getViewFromDOM: -> 
+    if ($picker = atom.workspaceView.find '.vtlf-file-picker').length > 0
+      $picker.view()
+      
+  initialize: (@state, @filePicker) ->
     # for x of @state then delete @state[x]
     # console.log 'initialize state', @state
 
@@ -115,7 +114,7 @@ class FilePickerView extends View
     
     @handleEvents()
     @$editor.focus()
-
+    
     @state.inputText    ?= ''
     @state.prevSelDirs  ?= {}
     @state.prevSelFiles ?= {}
@@ -367,9 +366,9 @@ class FilePickerView extends View
       return
     # console.log 'openFile', file, @state.recentSel
     @destroy()
-    @FilePicker.open file
+    @filePicker.openFile file, @
 
-  confirm: ->
+  confirm: (e) ->
     $ul = @getUl()
     if ($hi = $ul.find '.highlight').length is 0 then return
     text = $hi.text() 
@@ -377,7 +376,9 @@ class FilePickerView extends View
       when 'dirs'   then @openDir  text
       when 'files'  then @openFile text
       when 'recent' then @openFile @state.recentSel[@recentSelIdx], yes
-      
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    
   openFromButton: ->    
     if @colFocused is 'recent'
       @openFile @state.recentSel[@recentSelIdx], yes          
@@ -385,24 +386,25 @@ class FilePickerView extends View
       @openFile $tgt.text()
     
   handleEvents: ->
-    @click                                          => @$editor.focus()
-    atom.workspaceView.on 'core:cancel core:close', => @destroy()
-    atom.workspaceView.on 'core:confirm',           => @confirm()
-    @on 'view-tail-large-files:focus-next',         => @focusNext yes
-    @on 'view-tail-large-files:focus-previous',     => @focusNext no
-    @on 'view-tail-large-files:up',                 => @moveHighlight 'up'
-    @on 'view-tail-large-files:down',               => @moveHighlight 'down'
-    @on 'view-tail-large-files:pgup',               => @moveHighlight 'pgup'
-    @on 'view-tail-large-files:pgdown',             => @moveHighlight 'pgdown'
-    @on 'view-tail-large-files:ctrl-up',            => @goToParent()
-    @editorView.on 'keydown',                   (e) => @keypress e
-    @cancelButton.on 'click',                       => @destroy()
-    @openButton.on   'click',                       => @openFromButton()
-    @bsButton.on     'click',                       => @goToParent()
-    @on 'click', '.column-vertical',            (e) => @colClick e
+    @subscribe @, 'click',                                    => @$editor.focus()
+    @subscribe atom.workspaceView, 'core:cancel core:close',  => @destroy()
+    @subscribe atom.workspaceView, 'core:confirm',        (e) => @confirm e
+    @subscribe @, 'view-tail-large-files:focus-next',         => @focusNext yes
+    @subscribe @, 'view-tail-large-files:focus-previous',     => @focusNext no
+    @subscribe @, 'view-tail-large-files:up',                 => @moveHighlight 'up'
+    @subscribe @, 'view-tail-large-files:down',               => @moveHighlight 'down'
+    @subscribe @, 'view-tail-large-files:pgup',               => @moveHighlight 'pgup'
+    @subscribe @, 'view-tail-large-files:pgdown',             => @moveHighlight 'pgdown'
+    @subscribe @, 'view-tail-large-files:ctrl-up',            => @goToParent()
+    @subscribe @editorView, 'keydown',                    (e) => @keypress e
+    @subscribe @cancelButton, 'click',                        => @destroy()
+    @subscribe @openButton,   'click',                        => @openFromButton()
+    @subscribe @bsButton,     'click',                        => @goToParent()
+    @subscribe @dirsUl,       'click',                    (e) => @colClick e
+    @subscribe @filesUl,      'click',                    (e) => @colClick e
+    @subscribe @recentUl,     'click',                    (e) => @colClick e
     
-  preFileOpen: (file) ->
-    @state.recentSel = _.reject @state.recentSel, (recentFile) -> recentFile is file
-    @state.recentSel.unshift file
-          
-  destroy: -> @detach()
+  destroy: -> 
+    @detach()
+    @unsubscribe()
+  

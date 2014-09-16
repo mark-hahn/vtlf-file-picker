@@ -1,23 +1,30 @@
 
 # plugins/file-picker
 
-fs     = require 'fs-plus'
+fs = require 'fs-plus'
+_  = require "underscore"
 
 module.exports =
 class FilePicker
-  
-  @activate = (state, vtlfLibPath) ->
+
+  constructor: (@state, vtlfLibPath, @pluginMgr) ->
     @ViewOpener  = require vtlfLibPath + 'view-opener'
     FilePickerView = require './file-picker-view'
     
-    atom.workspaceView.command "view-tail-large-files:open", ->
-      if not FilePickerView.remove() 
-        new FilePickerView state, FilePicker
+    atom.workspaceView.command "view-tail-large-files:open", =>
+      if (filePickerView = FilePickerView.getViewFromDOM())
+        filePickerView.destroy()
+      else
+        @filePickerView = new FilePickerView @state, @
 
-  @open = (filePath) ->
-    atom.workspace.activePane.activateItem new @ViewOpener filePath, FilePicker
+  openFile: (filePath) ->
+    atom.workspace.activePane.activateItem new @ViewOpener filePath, @
       
-  constructor: (@filePath, view, reader, lineMgr, viewOpener) ->
-    if viewOpener.getCreatorPlugin() is FilePicker
-      view.open @
-  
+  postFileOpen: (fileView, filePath) -> 
+    @state.recentSel = 
+      _.reject @state.recentSel, (recentFile) -> recentFile is filePath
+    @state.recentSel.unshift filePath
+    
+  @destroy: -> 
+    @singletonInstance?.filePickerView?.destroy()
+    
