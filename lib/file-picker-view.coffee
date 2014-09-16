@@ -255,8 +255,15 @@ class FilePickerView extends View
       switch
         when $ul.hasClass 'dirs'   then @openDir  $tgt.text()
         when $ul.hasClass 'files'  then @openFile $tgt.text()
-        when $ul.hasClass 'recent' then @openFile @state.recentSel[$tgt.index()], yes
-      
+        when $ul.hasClass 'recent'
+          tgtIdx = $tgt.index()
+          if @colFocused is 'recent' and $tgt.hasClass 'highlight'
+            @openFile @state.recentSel[tgtIdx], yes
+          else
+            @focusCol 'recent'
+            @showTempPath @state.recentSel[tgtIdx]
+            @setHighlight $ul, tgtIdx
+            
   liMetrics: ($li) ->
     $inner      = $li.closest '.column-inner'
     $outer      = $inner.parent()
@@ -395,7 +402,7 @@ class FilePickerView extends View
     @subscribe @, 'view-tail-large-files:down',               => @moveHighlight 'down'
     @subscribe @, 'view-tail-large-files:pgup',               => @moveHighlight 'pgup'
     @subscribe @, 'view-tail-large-files:pgdown',             => @moveHighlight 'pgdown'
-    @subscribe @, 'view-tail-large-files:ctrl-up',            => @goToParent()
+    @subscribe @, 'view-tail-large-files:parent',            => @goToParent()
     @subscribe @editorView, 'keydown',                    (e) => @keypress e
     @subscribe @cancelButton, 'click',                        => @destroy()
     @subscribe @openButton,   'click',                        => @openFromButton()
