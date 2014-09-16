@@ -60,9 +60,8 @@ class FilePickerView extends View
                    class: 'inline-block btn left', 'Up'
                      
         @div class: "editor-container", =>
-          @subview "filePath focusable", new EditorView
-            mini: true
-            placeholderText: "Absolute path to file"
+          @subview "pathEditor", new EditorView
+            mini: true, placeholderText: "Absolute path to file"
             
         @div class: 'btn-group-vtlf btn-group right', =>
           @button outlet: 'openButton', \
@@ -97,8 +96,8 @@ class FilePickerView extends View
       
   initialize: (@state, @filePicker) ->
     # for x of @state then delete @state[x]
-    # console.log 'initialize state', @state
-
+    # console.log 'initial state', @state
+    
     wsv   = atom.workspaceView
     ww    = wsv.width();     wh     = wsv.height()
     width = 600;             height = Math.max 200, wh - 170
@@ -108,12 +107,10 @@ class FilePickerView extends View
     $col.height height - 100
     wsv.append @
     
-    @$editor     = @find '.editor'
+    @$editor     = @find '.editor.mini'
     @$focusable  = @find '.focusable'
-    @editorView  = @$editor.view()
     
     @handleEvents()
-    @$editor.focus()
     
     @state.inputText    ?= ''
     @state.prevSelDirs  ?= {}
@@ -136,8 +133,10 @@ class FilePickerView extends View
             rootDrives.push drive
       rootDrives[0]  ?= 'c:\\'
             
-    @editorView.setText @state.inputText
+    @pathEditor.setText @state.inputText
     @setAllFromPath()
+    
+    setTimeout (=> @focus()), 100	          
       
   setLIs: ($ul, list) ->
     $ul.empty()
@@ -145,8 +144,8 @@ class FilePickerView extends View
       $('<li/>').text(str).appendTo $ul
 
   showTempPath: (tempPath) ->
-    @stashedPath ?= @editorView.getText()
-    @editorView.setText tempPath
+    @stashedPath ?= @pathEditor.getText()
+    @pathEditor.setText tempPath
     @dirsUl.empty()
     @filesUl.empty()
     
@@ -154,11 +153,11 @@ class FilePickerView extends View
     # console.log 'setAllFromPath enter @dir',  @dir
     oldDir = @dir
     
-    if @stashedPath then @editorView.setText @stashedPath; @stashedPath = null
-    @state.inputText = @editorView.getText()
+    if @stashedPath then @pathEditor.setText @stashedPath; @stashedPath = null
+    @state.inputText = @pathEditor.getText()
     
     if /^\.+$/.test @state.inputText
-      @editorView.setText (@state.inputText = '')
+      @pathEditor     .setText (@state.inputText = '')
 
     curPath = _.trim @state.inputText
     if process.platform is 'win32' 
@@ -183,7 +182,7 @@ class FilePickerView extends View
         while parentPath isnt lastPath and not fs.isDirectorySync parentPath
           lastPath = parentPath
           parentPath = path.normalize parentPath + '/..'
-        @dir  = parentPath
+        @dir = parentPath
         
     if not (hasPath = /\\|\//.test @dir)
       @dir = ''
@@ -193,7 +192,7 @@ class FilePickerView extends View
         basename = path.basename dirOrFile
         if fs.isDirectorySync dirOrFile then dirs.push basename else files.push basename
         
-    if @dir isnt oldDir then @focusCol 'dirs'
+    # if @dir isnt oldDir then @focusCol 'dirs'
     
     $under = @.find '.highlights.underlayer'
     if not ($vtlfCover = $under.next()).hasClass 'vtlf-cover'
@@ -223,11 +222,11 @@ class FilePickerView extends View
     @setLIs @recentUl, _.map @state.recentSel, (file) -> path.basename file	   
     @setHighlight @recentUl, @recentSelIdx
       
-    @$editor.focus()
+    # @$editor.focus()
     
   setPath: (path) ->
     # console.log 'setPath', path
-    @editorView.setText path
+    @pathEditor.setText path
     @setAllFromPath()
     
   goToParent: ->
@@ -312,7 +311,7 @@ class FilePickerView extends View
     false
     
   moveHighlight: (code) ->
-    $ul = @getUl()
+    if not ($ul = @getUl()) then focusCol 'dirs'; return
     $hilite = $ul.find '.highlight'
     if (hiliteIdx = $hilite.index()) is -1 then code = 'down'
     hiliteIdx += switch code
@@ -340,23 +339,27 @@ class FilePickerView extends View
     @lastKeyAction = now
     
   focusCol: (col) ->
+    if col is @colFocused then return
     if @colFocused is 'recent' then @setAllFromPath()
     @$focusable.removeClass 'focused'   
     switch col
+      when 'editor' then process.nextTick => @pathEditor.focus()
       when 'dirs'   then @dirs.addClass   'focused'
       when 'files'  then @files.addClass  'focused'
       when 'recent' 
         @recent.addClass 'focused'
         @showTempPath @state.recentSel[@recentSelIdx]
         @setHighlight @getUl(), @recentSelIdx
+    if col isnt 'editor' 
+      process.nextTick => @bsButton.focus()  # just to unfocus editor
     @colFocused = col
-    # process.nextTick => @setAllFromPath()
-    
+           
   focusNext: (fwd) -> 
     switch @colFocused
-      when 'dirs'   then (if fwd then @focusCol('files')  else @focusCol('recent'))
+      when 'editor' then (if fwd then @focusCol('dirs')   else @focusCol('recent'))
+      when 'dirs'   then (if fwd then @focusCol('files')  else @focusCol('editor'))
       when 'files'  then (if fwd then @focusCol('recent') else @focusCol('dirs'))
-      when 'recent' then (if fwd then @focusCol('dirs')   else @focusCol('files'))
+      when 'recent' then (if fwd then @focusCol('editor') else @focusCol('files'))
       
   openFile: (text, isFullPath) ->
     if isFullPath then file = text
@@ -376,10 +379,13 @@ class FilePickerView extends View
     @filePicker.openFile file, @
 
   confirm: (e) ->
-    $ul = @getUl()
-    if ($hi = $ul.find '.highlight').length is 0 then return
-    text = $hi.text() 
+    if ($ul = @getUl()) 
+      if ($hi = $ul.find '.highlight').length is 0 then return
+      text = $hi.text() 
     switch @colFocused
+      when 'editor' 
+        file = @pathEditor.getText()
+        if fs.existsSync file then @openFile file, yes
       when 'dirs'   then @openDir  text
       when 'files'  then @openFile text
       when 'recent' then @openFile @state.recentSel[@recentSelIdx], yes
@@ -393,7 +399,6 @@ class FilePickerView extends View
       @openFile $tgt.text()
     
   handleEvents: ->
-    @subscribe @, 'click',                                    => @$editor.focus()
     @subscribe atom.workspaceView, 'core:cancel core:close',  => @destroy()
     @subscribe atom.workspaceView, 'core:confirm',        (e) => @confirm e
     @subscribe @, 'view-tail-large-files:focus-next',         => @focusNext yes
@@ -402,16 +407,16 @@ class FilePickerView extends View
     @subscribe @, 'view-tail-large-files:down',               => @moveHighlight 'down'
     @subscribe @, 'view-tail-large-files:pgup',               => @moveHighlight 'pgup'
     @subscribe @, 'view-tail-large-files:pgdown',             => @moveHighlight 'pgdown'
-    @subscribe @, 'view-tail-large-files:parent',            => @goToParent()
-    @subscribe @editorView, 'keydown',                    (e) => @keypress e
+    @subscribe @, 'view-tail-large-files:parent',             => @goToParent()
+    @subscribe @pathEditor,   'keydown',                  (e) => @keypress e
+    @subscribe @pathEditor,   'click',                        => @focusCol 'editor'
     @subscribe @cancelButton, 'click',                        => @destroy()
     @subscribe @openButton,   'click',                        => @openFromButton()
     @subscribe @bsButton,     'click',                        => @goToParent()
-    @subscribe @dirsUl,       'click',                    (e) => @colClick e
-    @subscribe @filesUl,      'click',                    (e) => @colClick e
-    @subscribe @recentUl,     'click',                    (e) => @colClick e
+    @subscribe @dirs,         'click',                    (e) => @colClick e
+    @subscribe @files,        'click',                    (e) => @colClick e
+    @subscribe @recent,       'click',                    (e) => @colClick e
     
   destroy: -> 
     @detach()
     @unsubscribe()
-  
