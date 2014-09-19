@@ -9,7 +9,7 @@ rootDrives = null
 winDrives  = 'cdefghijklmnopqrstuvwxyz'
 
 filePickerCSS = """
-.vtlf-file-picker {position:absolute; margin:0}
+.vtlf-file-picker {position:absolute; margin:0; -webkit-user-select:none}
 
   .btn-group.left {width: 50px; margin-left: 5px}
   
@@ -19,7 +19,7 @@ filePickerCSS = """
   
     .btn-group .btn.right {width: 45%}
     
-  .vtlf-container {display: -webkit-flex; -webkit-flex-direction: row; }
+  .vtlf-container {display: -webkit-flex; -webkit-flex-direction: row;}
   	
     .vtlf-container .editor-container {position: relative; -webkit-flex: 1}
     
@@ -27,17 +27,17 @@ filePickerCSS = """
       
       .vtlf-cover {position:absolute; width:100%; height:100%; background-color:red; opacity:0.2}
       
-    .vtlf-container .column-vertical {position:relative; top:-10px; 
+    .vtlf-container .column-vertical {position:relative; top:-10px;
         margin-left:3px; margin-right:15px}
         
       .vtlf-container .column {
           background-color:rgba(128, 128, 128, 0.2); position:relative;
-          width:180px; overflow:auto}
+          width:180px; overflow:auto;}
           
-        .vtlf-container .column-inner {width:160px; position:relative}
+        .vtlf-container .column-inner {width:160px; position:relative;}
         
         .vtlf-container .column-inner .list-group {
-          font-size:14px; margin-left:8px}
+          font-size:14px; margin-left:8px; }, =>
           
   .focused {border:2px solid gray}
 """
