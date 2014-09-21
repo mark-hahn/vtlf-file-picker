@@ -9,8 +9,8 @@ class FilePicker
   
   @type = 'singleton'
 
-  constructor: (pluginMgr, @state, vtlfLibPath, @vtlfEmitter) ->
-    @ViewOpener    = require vtlfLibPath + 'view-opener'
+  constructor: (pluginMgr, @state, vtlfLibPath) ->
+    @Viewer        = require vtlfLibPath + 'viewer'
     FilePickerView = require './file-picker-view'
     
     atom.workspaceView.command "view-tail-large-files:open", =>
@@ -23,11 +23,11 @@ class FilePicker
     pluginMgr.onDidOpenFile (fileView) => @didOpenFile fileView
         
   didOpenFile: (fileView) ->
-      recentSel = (@state.recentSel ?= [])
-      recentSel = _.reject recentSel, (recentFile) -> recentFile is fileView.filePath
+      @state.recentSel ?= []
+      @state.recentSel = _.reject @state.recentSel, (recentFile) -> recentFile is fileView.filePath
       @state.recentSel.unshift fileView.filePath
         
   fileSelected: (filePath) ->
-    atom.workspace.activePane.activateItem new @ViewOpener filePath
+    atom.workspace.activePane.activateItem new @Viewer filePath
       
   destroy: -> @filePickerView?.destroy()
