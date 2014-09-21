@@ -6,25 +6,28 @@ _  = require "underscore"
 
 module.exports =
 class FilePicker
+  
+  @type = 'singleton'
 
-  constructor: (@state, vtlfLibPath, @pluginMgr) ->
-    @ViewOpener  = require vtlfLibPath + 'view-opener'
+  constructor: (pluginMgr, @state, vtlfLibPath, @vtlfEmitter) ->
+    @ViewOpener    = require vtlfLibPath + 'view-opener'
     FilePickerView = require './file-picker-view'
     
     atom.workspaceView.command "view-tail-large-files:open", =>
       if (filePickerView = FilePickerView.getViewFromDOM())
         filePickerView.destroy()
+        delete @filePickerView
       else
         @filePickerView = new FilePickerView @state, @
-
-  openFile: (filePath) ->
-    atom.workspace.activePane.activateItem new @ViewOpener filePath, @
+        
+    pluginMgr.onDidOpenFile (fileView) => @didOpenFile fileView
+        
+  didOpenFile: (fileView) ->
+      recentSel = (@state.recentSel ?= [])
+      recentSel = _.reject recentSel, (recentFile) -> recentFile is fileView.filePath
+      @state.recentSel.unshift fileView.filePath
+        
+  fileSelected: (filePath) ->
+    atom.workspace.activePane.activateItem new @ViewOpener filePath
       
-  postFileOpen: (fileView, filePath) -> 
-    @state.recentSel = 
-      _.reject @state.recentSel, (recentFile) -> recentFile is filePath
-    @state.recentSel.unshift filePath
-    
-  @destroy: -> 
-    @singletonInstance?.filePickerView?.destroy()
-    
+  destroy: -> @filePickerView?.destroy()

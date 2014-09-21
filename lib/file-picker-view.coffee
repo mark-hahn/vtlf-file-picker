@@ -374,9 +374,8 @@ class FilePickerView extends View
         detailedMessage: 'File ' + file + ' doesn\'t exist.'
         buttons: ['Close']
       return
-    # console.log 'openFile', file, @state.recentSel
     @destroy()
-    @filePicker.openFile file, @
+    @filePicker.fileSelected file
 
   confirm: (e) ->
     if ($ul = @getUl()) 
