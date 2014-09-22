@@ -10,8 +10,5 @@
   },
   "dependencies": {
     "fs-plus": ">2.0.0"
-  },
-  "peerDependencies": {
-    "view-tail-large-files": "0.1.x"
   }
 }
