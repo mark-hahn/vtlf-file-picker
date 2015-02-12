@@ -12,6 +12,6 @@
     "fs-plus": ">2.0.0",
     "sub-atom": "*",
     "underscore": "*",
-    "underscore.string":, "*"
+    "underscore.string": "*"
   }
 }
