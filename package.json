@@ -1,7 +1,7 @@
 {
   "name": "vtlf-file-picker",
   "main": "./lib/vtlf-file-picker",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "view-tail-large-files plugin to choose files.",
   "repository": "https://github.com/mark-hahn/vtlf-file-picker",
   "license": "MIT",
@@ -11,6 +11,7 @@
   "dependencies": {
     "fs-plus": ">2.0.0",
     "sub-atom": "*",
-    "underscore": "*"
+    "underscore": "*",
+    "underscore.string":, "*"
   }
 }
