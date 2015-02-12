@@ -3,6 +3,7 @@
 
 fs = require 'fs-plus'
 _  = require "underscore"
+SubAtom = require 'sub-atom'
 
 module.exports =
 class FilePicker
@@ -10,10 +11,13 @@ class FilePicker
   @type = 'singleton'
 
   constructor: (pluginMgr, @state, vtlfLibPath) ->
+    @subs = new SubAtom
+    
     @Viewer        = require vtlfLibPath + 'viewer'
     FilePickerView = require './file-picker-view'
     
-    atom.workspaceView.command "view-tail-large-files:open", =>
+    @subs.add atom.commands.add 'atom-workspace', 
+                                'view-tail-large-files:open': =>
       if (filePickerView = FilePickerView.getViewFromDOM())
         filePickerView.destroy()
         delete @filePickerView
@@ -30,4 +34,6 @@ class FilePicker
   fileSelected: (filePath) ->
     atom.workspace.activePane.activateItem new @Viewer filePath
       
-  destroy: -> @filePickerView?.destroy()
+  destroy: -> 
+    @subs.dispose()
+    @filePickerView?.destroy()
