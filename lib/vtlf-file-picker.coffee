@@ -16,7 +16,7 @@ class FilePicker
     @Viewer        = require vtlfLibPath + 'viewer'
     FilePickerView = require './file-picker-view'
     
-    @subs.add atom.commands.add 'atom-workspace', 'view-tail-large-files:open', =>
+    @subs.add atom.commands.add 'atom-workspace, atom-text-editor::shadow', 'view-tail-large-files:open', =>
       if (filePickerView = FilePickerView.getViewFromDOM())
         filePickerView.destroy()
         delete @filePickerView
