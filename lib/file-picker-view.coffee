@@ -1,4 +1,7 @@
-{$, View, EditorView} = require 'atom'
+
+{$}     = require 'space-pen'
+{View}  = require 'atom-space-pen-views'
+SubAtom = require 'sub-atom'
 
 fs        = require 'fs-plus'
 path      = require 'path'
@@ -16,7 +19,7 @@ filePickerCSS = """
       .btn-group .btn.right {width: 45%}
     .vtlf-container {display: -webkit-flex; -webkit-flex-direction: row;}  	
       .vtlf-container .editor-container {position: relative; -webkit-flex: 1}
-        .vtlf-container .editor {width: 100%}
+        .vtlf-container atom-text-editor {width: 100%}
         .vtlf-cover {position:absolute; width:100%; height:100%; background-color:red; opacity:0.2}
       .vtlf-container .column-vertical {position:relative; top:-10px;
           margin-left:3px; margin-right:15px}
@@ -79,23 +82,25 @@ class FilePickerView extends View
               @ul outlet: 'recentUl', class: 'list-group recent', =>
                            
   @getViewFromDOM: -> 
-    if ($picker = atom.workspaceView.find '.vtlf-file-picker').length > 0
+    if ($picker = @workspaceView.find '.vtlf-file-picker').length > 0
       $picker.view()
       
   initialize: (@state, @filePicker) ->
     # for x of @state then delete @state[x]
     # console.log 'initial state', @state
     
-    wsv   = atom.workspaceView
-    ww    = wsv.width();     wh     = wsv.height()
+    @subs = new SubAtom
+    @workspaceView = atom.views.getView atom.workspace
+    
+    ww    = @workspaceView.width();    wh     = @workspaceView.height()
     width = 600;             height = Math.max 200, wh - 170
     left  = (ww - width)/2;  top    = 80
     $col  = @find '.column'
     @css {left, top, width, height}
     $col.height height - 100
-    wsv.append @
+    @workspaceView.append @
     
-    @$editor     = @find '.editor.mini'
+    @$editor     = @find 'atom-text-editor.mini'
     @$focusable  = @find '.focusable'
     
     @handleEvents()
@@ -385,24 +390,24 @@ class FilePickerView extends View
       @openFile $tgt.text()
     
   handleEvents: ->
-    @subscribe atom.workspaceView, 'core:cancel core:close',  => @destroy()
-    @subscribe atom.workspaceView, 'core:confirm',        (e) => @confirm e
-    @subscribe @, 'view-tail-large-files:focus-next',         => @focusNext yes
-    @subscribe @, 'view-tail-large-files:focus-previous',     => @focusNext no
-    @subscribe @, 'view-tail-large-files:up',                 => @moveHighlight 'up'
-    @subscribe @, 'view-tail-large-files:down',               => @moveHighlight 'down'
-    @subscribe @, 'view-tail-large-files:pgup',               => @moveHighlight 'pgup'
-    @subscribe @, 'view-tail-large-files:pgdown',             => @moveHighlight 'pgdown'
-    @subscribe @, 'view-tail-large-files:parent',             => @goToParent()
-    @subscribe @pathEditor,   'keydown',                  (e) => @keypress e
-    @subscribe @pathEditor,   'click',                        => @focusCol 'editor'
-    @subscribe @cancelButton, 'click',                        => @destroy()
-    @subscribe @openButton,   'click',                        => @openFromButton()
-    @subscribe @bsButton,     'click',                        => @goToParent()
-    @subscribe @dirs,         'click',                    (e) => @colClick e
-    @subscribe @files,        'click',                    (e) => @colClick e
-    @subscribe @recent,       'click',                    (e) => @colClick e
+    @subs @workspaceView, 'core:cancel core:close',  => @destroy()
+    @subs @workspaceView, 'core:confirm',        (e) => @confirm e
+    @subs @, 'view-tail-large-files:focus-next',         => @focusNext yes
+    @subs @, 'view-tail-large-files:focus-previous',     => @focusNext no
+    @subs @, 'view-tail-large-files:up',                 => @moveHighlight 'up'
+    @subs @, 'view-tail-large-files:down',               => @moveHighlight 'down'
+    @subs @, 'view-tail-large-files:pgup',               => @moveHighlight 'pgup'
+    @subs @, 'view-tail-large-files:pgdown',             => @moveHighlight 'pgdown'
+    @subs @, 'view-tail-large-files:parent',             => @goToParent()
+    @subs @pathEditor,   'keydown',                  (e) => @keypress e
+    @subs @pathEditor,   'click',                        => @focusCol 'editor'
+    @subs @cancelButton, 'click',                        => @destroy()
+    @subs @openButton,   'click',                        => @openFromButton()
+    @subs @bsButton,     'click',                        => @goToParent()
+    @subs @dirs,         'click',                    (e) => @colClick e
+    @subs @files,        'click',                    (e) => @colClick e
+    @subs @recent,       'click',                    (e) => @colClick e
     
   destroy: -> 
     @detach()
-    @unsubscribe()
+    @subs.dispose()
